@@ -83,7 +83,14 @@ def construir_tabla_slr(gramatica, first, follow):
                 if siguiente in estados:
                     j = estado_indices[frozenset(siguiente)]
                     if simbolo in terminales:
-                        tabla[i][simbolo] = f"s{j}"  # shift
+                        if simbolo in tabla[i]:
+                            # Si ya hay una acción, convierte a lista y agrega la nueva
+                            if isinstance(tabla[i][simbolo], list):
+                                tabla[i][simbolo].append(f"s{j}")
+                            else:
+                                tabla[i][simbolo] = [tabla[i][simbolo], f"s{j}"]
+                        else:
+                            tabla[i][simbolo] = f"s{j}"  # shift
                     elif simbolo in no_terminales:
                         tabla[i][simbolo] = j        # goto
             # REDUCE o ACCEPT
@@ -99,37 +106,47 @@ def construir_tabla_slr(gramatica, first, follow):
                                 prod_num = (head, prod)
                                 break
                         if prod_num is not None:
-                            tabla[i][t] = f"r{head}->{body}"
+                            if t in tabla[i]:
+                                # Si ya hay una acción, convierte a lista y agrega la nueva
+                                if isinstance(tabla[i][t], list):
+                                    tabla[i][t].append(f"r{head}->{body}")
+                                else:
+                                    tabla[i][t] = [tabla[i][t], f"r{head}->{body}"]
+                            else:
+                                tabla[i][t] = f"r{head}->{body}"
 
     return tabla
 
 def analizar_palabra_slr(palabra, tabla_slr, simbolo_inicial):
-    # Convertir la palabra en una lista de símbolos y agregar el fin de cadena
     entrada = list(palabra) + ["$"]
-    pila = [0]  # La pila comienza con el estado 0
-    salida = [] # Para registrar los pasos
-
+    pila = [0]
+    salida = []
     idx = 0
+
+    salida.append(f"{'Pila':<20} {'Entrada':<20} {'Acción':<30}")
+    salida.append("-" * 70)
+
     while True:
         estado = pila[-1]
         simbolo = entrada[idx]
         accion = tabla_slr[estado].get(simbolo, "")
 
-        salida.append(f"Pila: {pila} | Entrada: {entrada[idx:]} | Acción: {accion}")
+        pila_str = " ".join(map(str, pila))
+        entrada_str = "".join(entrada[idx:])
+        salida.append(f"{pila_str:<20} {entrada_str:<20} {accion:<30}")
 
         if accion == "":
-            salida.append("Error de sintaxis.")
+            salida.append("❌ Error de sintaxis: no hay acción para este símbolo.")
             break
         elif accion == "acc":
-            salida.append("Cadena aceptada.")
+            salida.append("✅ Cadena aceptada.")
             break
-        elif accion.startswith("s"):  # Shift
+        elif accion.startswith("s"):
             nuevo_estado = int(accion[1:])
             pila.append(simbolo)
             pila.append(nuevo_estado)
             idx += 1
-        elif accion.startswith("r"):  # Reduce
-            # Extraer la producción
+        elif accion.startswith("r"):
             produccion = accion[1:]
             head, body = produccion.split("->")
             head = head.strip()
@@ -138,18 +155,17 @@ def analizar_palabra_slr(palabra, tabla_slr, simbolo_inicial):
                 body_len = 0
             else:
                 body_len = len(body)
-            # Sacar 2*body_len elementos de la pila (símbolo y estado por cada símbolo)
             for _ in range(2 * body_len):
                 pila.pop()
             estado_actual = pila[-1]
             pila.append(head)
             goto_estado = tabla_slr[estado_actual].get(head)
             if goto_estado is None:
-                salida.append("Error: transición goto no encontrada.")
+                salida.append("❌ Error: transición goto no encontrada.")
                 break
             pila.append(goto_estado)
         else:
-            salida.append("Acción desconocida.")
+            salida.append("❌ Acción desconocida.")
             break
 
     return "\n".join(salida)
@@ -161,15 +177,25 @@ def imprimir_tabla_slr(tabla_slr):
         simbolos.update(fila.keys())
     simbolos = sorted(simbolos)
 
-    # Imprimir encabezado
-    encabezado = "Estado".ljust(8) + "".join(s.ljust(12) for s in simbolos)
+    # Encabezado
+    encabezado = "Estado".ljust(8) + "| " + "|".join(s.center(10) for s in simbolos) + " |"
+    separador = "-" * len(encabezado)
     print(encabezado)
-    print("-" * len(encabezado))
+    print(separador)
 
-    # Imprimir cada fila de la tabla
+    # Filas
     for i, fila in enumerate(tabla_slr):
-        linea = str(i).ljust(8)
+        linea = str(i).ljust(8) + "| "
         for s in simbolos:
-            accion = fila.get(s, "")
-            linea += accion.ljust(12)
+            accion = str(fila.get(s, ""))
+            linea += accion.center(10) + "|"
         print(linea)
+        print(separador)
+
+def es_slr1(tabla_slr):
+    for i, fila in enumerate(tabla_slr):
+        for simbolo, accion in fila.items():
+            if isinstance(accion, list) and len(accion) > 1:
+                print(f"Conflicto en el estado {i}, símbolo '{simbolo}': {accion}")
+                return False
+    return True

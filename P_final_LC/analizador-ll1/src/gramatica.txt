@@ -1,7 +1,5 @@
 1
-5
-E TP
-P +TP ε
-T FQ
-Q *FQ ε
-F (E) n
+3  
+S S+T T  
+T T*F F  
+F (S) i

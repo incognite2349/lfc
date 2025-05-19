@@ -194,4 +194,11 @@ def imprimir_pasos(pasos):
     print("=" * 80)
     for paso in pasos:
         cima, pila, entrada, accion = paso
+        # Mejora visual con emojis
+        if "aceptada" in accion.lower():
+            accion = "✅ " + accion
+        elif "error" in accion.lower():
+            accion = "❌ " + accion
+        elif "Coincide" in accion:
+            accion = "📥 " + accion
         print(f"{cima:<10} {pila:<20} {entrada:<20} {accion:<30}")
